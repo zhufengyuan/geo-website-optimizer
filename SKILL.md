@@ -8,16 +8,28 @@ agent_created: true
 
 ## Overview
 
-This skill transforms any corporate website into a GEO-optimized site that AI
-engines can discover, understand, and cite. It encapsulates the complete
-methodology from two production documents (500+ pages combined) and real-world
-dual-server deployment experience.
+This skill transforms **any company's corporate website** (regardless of
+industry — manufacturing, SaaS, healthcare, finance, education, retail, real
+estate, etc.) into a GEO-optimized site that AI engines can discover, understand,
+and cite. It encapsulates the complete methodology from two production documents
+(500+ pages combined) and real-world dual-server deployment experience.
 
 **Core principle**: GEO is not SEO. SEO optimizes for search engine ranking;
 GEO optimizes for AI engine citation. The goal is not to rank #1 on Google,
 but to be the brand AI mentions when users ask "which XX is good?"
 
+**Universal applicability**: The techniques in this skill — Schema.org structured
+data, FAQ optimization, llms.txt generation, AI crawler configuration, content
+de-jargonization — apply to corporate websites in any industry. The key is tailoring
+the **content** to the client's domain while following the same **structural** GEO
+principles.
+
 ## When to Use
+
+**Any company, any industry** — this skill works for corporate websites in
+manufacturing, healthcare, finance, SaaS, education, real estate, retail,
+and beyond. The structural optimization techniques are universal; you'll
+tailor the content to the client's domain.
 
 - Building a new corporate website with GEO optimization from scratch
 - Auditing an existing website's GEO compliance (5 dimensions, 50+ checks)
@@ -29,9 +41,21 @@ but to be the brand AI mentions when users ask "which XX is good?"
 - Expanding FAQ for maximum AI citation coverage
 - Performing dual-server synchronized deployment via SSH/SFTP
 - Optimizing image alt text for AI image recognition
-- Creating a /tech-docs page with Schema templates as deployment demonstration
+- Creating a knowledge base or documentation page with Schema templates
 
 ## Workflow
+
+### Phase 0: Understand the Client's Industry
+
+Before applying any GEO technique, understand the client's business context:
+
+1. **What industry?** (manufacturing, SaaS, healthcare, finance, education, etc.)
+2. **What does AI need to know to cite this brand?** (products, certifications, case studies, founders, locations)
+3. **What questions do target customers ask?** (translate real customer language into FAQ)
+4. **What external validation exists?** (government registrations, media reports, industry awards, platform profiles)
+
+This industry-agnostic step ensures the GEO techniques are tailored to the
+client's domain rather than blindly applying templates.
 
 ### Phase 1: GEO Audit (if existing site)
 
@@ -61,8 +85,8 @@ Follow `references/content-strategy.md` for:
 - Use customer's natural language for questions (not academic terms)
 - One question = one answer, under 300 words
 - Conclusion first, then explanation
-- Numbers over adjectives ("3 months 1:1, 6 months 1:5" not "gets better")
-- Target 30-100+ FAQ entries covering 9+ categories
+- Numbers over adjectives ("reduces cost by 30%" not "cost-effective")
+- Target 30-100+ FAQ entries covering the client's product/service/industry
 - FAQ must be static HTML (no JS collapse) — AI crawlers need full content
 
 **Page Content Structure** (concentric circle model):
@@ -78,10 +102,10 @@ Follow `references/content-strategy.md` for:
 - Decorative images: empty alt="" (explicitly marked as decoration)
 - Never duplicate title as alt — AI penalizes keyword stuffing
 
-**De-jargonization** (three layers):
-1. Delete framework codenames (K-DAF, GUIDE, AVIV → plain descriptions)
-2. Replace jargon with metaphors (T2→T0/T1→T3 → "foundation→endorsement→reputation")
-3. Give numbers not concepts ("month 1: invisible, month 3: 1:1, month 12: 1:10")
+**De-jargonization** (three layers, applies to any industry):
+1. Delete internal framework codenames → replace with plain business descriptions
+2. Replace industry jargon with everyday metaphors → "AI-driven predictive analytics" → "uses data to predict what customers want next"
+3. Give numbers not concepts → "improves efficiency" → "cuts processing time from 2 hours to 15 minutes"
 
 ### Phase 3: Schema.org Structured Data
 
@@ -160,8 +184,8 @@ Sitemap: https://{domain}/sitemap.xml
 - AI citation guide (standard brand description, core advantages, contact)
 
 **llms-full.txt** — extended AI knowledge base:
-- Company overview, GEO definition, core services
-- Technical capabilities, engine coverage
+- Company overview, core products/services, industry positioning
+- Technical capabilities, certifications, case studies
 - Contact information, brand standard description
 - Never include /admin links (security risk)
 
@@ -171,28 +195,28 @@ Sitemap: https://{domain}/sitemap.xml
 
 Follow `references/deployment-guide.md` for detailed operations.
 
-**Dual-server architecture** (for redundancy):
+**Dual-server architecture** (for redundancy, configurable per client):
 
-| Role | Server | SSH Port | App Port | Domain |
-|---|---|---|---|---|
-| Primary | New server | 22 | 3000 | primary-domain.com |
-| Secondary | Old server | 123 | 8333 | secondary-domain.com |
+| Role | SSH Port | App Port | Domain |
+|---|---|---|---|
+| Primary | 22 | {primary_port} | primary-domain.com |
+| Secondary | {secondary_ssh} | {secondary_port} | secondary-domain.com |
 
 **Deployment script** (`scripts/deploy_geo_site.py`):
 ```python
 python scripts/deploy_geo_site.py \
-  --host 106.52.23.83 --port 22 --user root \
-  --password 'PASSWORD' --project /srv/proj2 \
-  --node-bin /root/.nvm/versions/node/v18.20.8/bin/node \
-  --app-port 3000 --pm2-name yunding-geo-site
+  --host {server_ip} --port {ssh_port} --user {ssh_user} \
+  --password '{ssh_password}' --project /srv/{project_name} \
+  --node-bin {node_binary_path} \
+  --app-port {app_port} --pm2-name {pm2_process_name}
 ```
 
 **Standard build sequence** (MUST follow this order):
 ```bash
-cd /srv/proj2
+cd /srv/{project_name}
 rm -rf .next                          # 1. Clear cache (critical!)
 {node_bin} node_modules/.bin/next build  # 2. Build
-pm2 delete yunding-geo-site           # 3. Delete (not restart — avoids errored)
+pm2 delete {pm2_name}                 # 3. Delete (not restart — avoids errored)
 pm2 start ecosystem.config.js         # 4. Fresh start
 sleep 5                               # 5. Wait for warmup
 curl -s -o /dev/null -w "%{http_code}" http://localhost:{port}/  # 6. Verify
@@ -232,9 +256,9 @@ curl -s -o /dev/null -w "%{http_code}" http://localhost:{port}/  # 6. Verify
 ```python
 # Source file MD5 must match
 for file in modified_files:
-    md5_new = ssh_new.exec_command(f"md5sum /srv/proj2/{file}")[1].read().decode().split()[0]
-    md5_old = ssh_old.exec_command(f"md5sum /srv/proj2/{file}")[1].read().decode().split()[0]
-    assert md5_new == md5_old, f"MD5 mismatch: {file}"
+    md5_primary = ssh_primary.exec_command(f"md5sum /srv/{project_name}/{file}")[1].read().decode().split()[0]
+    md5_secondary = ssh_secondary.exec_command(f"md5sum /srv/{project_name}/{file}")[1].read().decode().split()[0]
+    assert md5_primary == md5_secondary, f"MD5 mismatch: {file}"
 ```
 
 ## Resources
