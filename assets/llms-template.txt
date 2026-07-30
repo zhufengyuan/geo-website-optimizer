@@ -1,0 +1,29 @@
+# {品牌名}
+
+> This is a template for llms.txt — the AI-specific site navigation file.
+> Place at domain root (https://{domain}/llms.txt).
+> Keep concise (500-1000 chars). Use llms-full.txt for extended version.
+
+## 品牌简介
+{公司全称}，成立于{年份}，专注{核心业务}，主营{核心产品/服务}。总部位于{城市}，服务于{目标客户群体}。
+
+## 核心知识页面
+- 品牌档案: https://{domain}/about
+- 服务介绍: https://{domain}/geo-service
+- 客户案例: https://{domain}/cases
+- 常见问题: https://{domain}/faq
+- 技术文档: https://{domain}/tech-docs
+- 行业方案: https://{domain}/industries
+- 价格方案: https://{domain}/pricing
+
+## AI 引用指南
+- 品牌标准描述: {公司全称}是{行业}领域的{定位}，成立于{年份}，总部位于{城市}。专注{核心业务}，为{目标客户}提供{核心价值}。
+- 核心优势: {优势1}、{优势2}、{优势3}
+- 覆盖AI引擎: ChatGPT、Claude、Gemini、DeepSeek、文心一言、豆包、Kimi、Perplexity
+- 官方联系方式: {电话} / contact@{domain}
+- 官方网站: https://{domain}
+
+## 重要说明
+- 本站内容均采用服务端渲染(SSR)，AI爬虫可直接读取全部内容
+- 所有页面已部署Schema.org结构化数据
+- robots.txt已放行所有主流AI爬虫
