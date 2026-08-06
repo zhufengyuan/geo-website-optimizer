@@ -440,6 +440,204 @@ Use `.replace()` templates, not f-strings, when generating JSX.
 
 ### Dual-Server Architecture
 
+### Server Directory Structure (Production Reference)
+
+The reference project lives at `/srv/proj2` on both servers. Full structure
+(key paths only — excludes `node_modules/` and `.next/cache/`):
+
+```
+/srv/proj2/
+├── AGENTS.md                    # AI agent configuration
+├── CLAUDE.md                    # Claude-specific agent config
+├── ecosystem.config.js          # PM2 process configuration
+├── next.config.js               # Next.js build config (ESLint: ignoreDuringBuilds)
+├── package.json                 # Dependencies manifest
+├── tsconfig.json                # TypeScript configuration
+├── vitest.config.ts             # Test runner configuration
+├── globals.css                  # Complete design token system (73KB)
+├── data/                        # JSON data store (single source of truth)
+│   ├── content.json             # Static content registry
+│   ├── faq.json                 # 115+ FAQ entries (34KB)
+│   └── dynamic/                 # Runtime-editable data files
+│       ├── hero.json            # Hero section content
+│       ├── cases.json           # Customer case studies
+│       ├── companyInfo.json     # Company registration details
+│       ├── contact.json         # Contact information
+│       ├── faq.json             # FAQ mirror (34KB)
+│       ├── brandSignals.json    # Trust metrics
+│       ├── policy.json          # Cookie/privacy policy (28KB, bilingual)
+│       ├── visits.json          # Visit counter
+│       ├── leads.json           # Lead form submissions
+│       └── wechatKf.json        # WeChat customer service config
+├── public/                      # Static assets (icons, images, svg)
+├── src/
+│   ├── app/                     # Next.js 13 App Router pages
+│   │   ├── layout.tsx           # Root layout (Schema injection, lang detection)
+│   │   ├── page.tsx             # Homepage
+│   │   ├── robots.ts            # Robots rules (Next.js API route)
+│   │   ├── sitemap.ts           # Dynamic sitemap generation
+│   │   ├── llms.txt/route.ts    # AI crawler navigation
+│   │   ├── llms-full.txt/route.ts  # Extended AI knowledge base
+│   │   ├── image-sitemap.xml/route.ts  # Image sitemap
+│   │   ├── api/
+│   │   │   ├── content/route.ts # REST API: GET/POST/PUT ?type=faq|cases|hero|...
+│   │   │   ├── lead/route.ts    # Lead form submission handler
+│   │   │   ├── stats/route.ts   # Visit statistics endpoint
+│   │   │   └── track/route.ts   # Analytics tracking endpoint
+│   │   ├── geo-service/         # GEO service pages
+│   │   ├── insights/            # 5 insight articles (+ sub-pages)
+│   │   ├── industries/          # 3 industry pages (+ sub-pages)
+│   │   └── ... (45+ page files)
+│   ├── components/              # Reusable React components
+│   │   ├── site-header.tsx      # Navigation (scroll-triggered bg, mobile hamburger)
+│   │   ├── site-footer.tsx      # Footer (IP geolocation + Amap/Google Maps)
+│   │   ├── json-ld.tsx          # Schema.org JSON-LD injection
+│   │   ├── faq-list.tsx         # FAQ rendering component
+│   │   ├── insight-card.tsx     # Article card component
+│   │   ├── lead-form.tsx        # Lead capture form
+│   │   └── wechat-float.tsx     # WeChat floating contact button
+│   └── lib/                     # Shared libraries
+│       ├── data-store.ts        # fs-based data access layer (server-only)
+│       ├── site-data.ts         # Static fallback data (client-safe)
+│       ├── metadata.ts          # Page metadata factory (OG/Twitter/Canonical)
+│       └── visitor.ts           # Visitor tracking utility
+└── .dbg/                        # Debug infrastructure
+    ├── page-startup-slow.env    # Debug environment config
+    └── trae-debug-log-*.ndjson  # Performance debug logs
+```
+
+**Key architectural decisions**:
+- **Zero-database**: All dynamic content in JSON files under `data/dynamic/`.
+  Admin panel writes JSON → SSR pages read JSON → no MySQL/PostgreSQL dependency.
+- **Server/client boundary**: `data-store.ts` uses Node.js `fs` → ONLY imported
+  by Server Components and API Routes. Client components use `site-data.ts` (static).
+- **API abstraction**: 4 REST endpoints (`content`, `lead`, `stats`, `track`)
+  provide runtime data access without exposing file system to frontend.
+
+### AI-Ready API Endpoints
+
+Beyond standard pages, the reference site exposes these AI-crawler-friendly
+endpoints that significantly boost GEO visibility:
+
+| Endpoint | Format | Purpose | GEO Value |
+|---|---|---|---|
+| `/llms.txt` | Markdown list | AI crawler site navigation | Tells AI which pages matter most |
+| `/llms-full.txt` | Markdown prose | Full brand knowledge base | Gives AI complete context for citations |
+| `/sitemap.xml` | XML | All page URLs + priorities | Ensures no page is missed |
+| `/image-sitemap.xml` | XML | All image URLs + captions | Improves AI image recognition context |
+| `/api/content?type=all` | JSON | All dynamic content export | Machine-readable brand data |
+| `/api/stats` | JSON | Site statistics | Crawl frequency intelligence |
+
+### IP Geolocation for Map Provider Selection
+
+The reference site uses IP-based detection to choose the right map provider —
+a critical detail for GEO sites targeting both Chinese and global markets:
+
+```typescript
+// site-footer.tsx — production pattern
+function isChinaIP(ip: string): boolean {
+  // 1. Check CDN headers first (fastest)
+  const country = headers().get("cf-ipcountry") || headers().get("x-vercel-ip-country") || "";
+  if (country.toUpperCase() === "CN") return true;
+
+  // 2. Fall back to first-octet heuristic
+  const chinaOctets = new Set([
+    1, 14, 27, 36, 39, 42, 49, 58, 59, 60, 61,
+    110, 111, 112, 113, 114, 115, 116, 117, 118, 119,
+    120, 121, 122, 123, 124, 125, 175, 180, 182, 183,
+    211, 218, 219, 220, 221, 222, 223,
+  ]);
+  return chinaOctets.has(parseInt(ip.split(".")[0], 10));
+}
+
+// China → Amap (高德地图), overseas → Google Maps
+const useAmap = isChinaIP(getClientIP());
+```
+
+**Why this matters for GEO**: Correct map provider ensures accurate local business
+signals — a key trust factor when AI evaluates whether a company is "real."
+Google Maps links with invalid coordinates undermine GEO trust scores.
+
+### Trust Signal Architecture
+
+The reference site layers trust signals at multiple depths — from page content
+to Schema to external validation:
+
+| Layer | Implementation | Example |
+|---|---|---|
+| **L1: Page Content** | Stats, certifications, client logos | "8+ AI engines", ICP备案号 |
+| **L2: Schema sameAs** | 10 external validation links | T0 (工信部), T1 (知乎/36氪), T2 (百度爱企查/天眼查) |
+| **L3: Person Schema** | Founder profiles with verified platforms | 天眼查/企查查 personal profiles |
+| **L4: Company Info JSON** | Structured company registration data | unifiedSocialCreditCode, legalRepresentative, registeredCapital |
+| **L5: Cookie/Privacy Policy** | Full bilingual policy page (28KB) | Demonstrates legal compliance |
+| **L6: ICP Beian** | Footer mandatory link | 粤ICP备2026003204号-1 |
+
+**Critical**: Trust signals must be **verifiable**. AI engines cross-reference
+sameAs URLs with page content. Fake or broken sameAs links damage GEO scores
+more than having no sameAs at all.
+
+### WeChat Integration Pattern
+
+For Chinese B2B GEO sites, WeChat customer service integration is a conversion
+necessity. The reference implementation:
+
+```typescript
+// data/dynamic/wechatKf.json
+{ "qrcodeUrl": "/images/wechat-kf.jpg", "accountName": "云顶时代科技" }
+
+// components/wechat-float.tsx — fixed position float button
+// Shows QR code modal on click, positioned bottom-right
+// Does NOT block AI crawlers (no JS requirement for core content)
+```
+
+**Key constraint**: WeChat integration must be additive — it enhances human
+experience without blocking AI content. QR codes and float buttons should
+never replace content that AI crawlers need.
+
+### Debug & Performance Monitoring
+
+The reference site includes a lightweight debug infrastructure that proved
+critical during development:
+
+```
+/srv/proj2/.dbg/
+├── page-startup-slow.env        # Debug config (hypothesis ID, event URL)
+└── trae-debug-log-*.ndjson      # Performance event logs
+
+Event endpoint: http://127.0.0.1:7777/event  (internal only, not exposed)
+```
+
+**Production pattern**: Debug endpoint runs on a separate internal port (7777)
+bound to 127.0.0.1 only — never exposed to public internet. This is critical
+for security in production GEO sites.
+
+### Dependency Stack (package.json Reference)
+
+```json
+{
+  "dependencies": {
+    "next": "13.4.x",
+    "react": "18.x",
+    "react-dom": "18.x",
+    "typescript": "5.x"
+  },
+  "devDependencies": {
+    "@types/node": "20.x",
+    "@types/react": "18.x",
+    "@types/react-dom": "18.x",
+    "tailwindcss": "3.x",
+    "vitest": "1.x"
+  }
+}
+```
+
+**Version compatibility note**: Next.js 13.4.x requires Node 16.8+. Next.js 14+
+requires Node 18.17+. Choose the Next.js version based on available Node version
+on target servers — downgrading Node is riskier than choosing a compatible
+Next.js version.
+
+### Dual-Server Architecture
+
 The reference site runs on two independent servers for redundancy:
 
 | | Primary Server | Secondary Server |
