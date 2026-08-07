@@ -293,7 +293,8 @@ Homepage (/)                          ← Organization + Service + FAQPage + Web
 │   ├── /insights/ai-brand-recommendation   ← Article + FAQPage
 │   ├── /insights/geo-content-architecture  ← Article + FAQPage
 │   ├── /insights/source-pyramid      ← Article + FAQPage
-│   └── /insights/geo-roi-model       ← Article + FAQPage
+│   ├── /insights/geo-roi-model       ← Article + FAQPage
+│   └── /insights/geo-strategy-insights ← Article + FAQPage
 ├── /industries                       ← CollectionPage
 │   ├── /industries/restaurant        ← Article + FAQPage
 │   ├── /industries/education         ← Article + FAQPage
@@ -340,6 +341,11 @@ pattern instead of a traditional database. This keeps deployment lightweight
 **Critical rule**: `data-store.ts` uses Node.js `fs` module — it MUST only be
 imported by Server Components or API Routes. Client components (like site-header)
 import `site-data.ts` for static data. Never cross the boundary.
+
+**Bilingual data layer**: The reference implementation uses dual-field patterns
+for zh/en support — e.g., `RawFAQItem` has `questionZh`/`questionEn` in storage,
+with a runtime locale resolver that picks the right field. This avoids separate
+JSON files per language and keeps content in one file per entity type.
 
 ### Design System
 
@@ -513,6 +519,12 @@ The reference project lives at `/srv/proj2` on both servers. Full structure
   by Server Components and API Routes. Client components use `site-data.ts` (static).
 - **API abstraction**: 4 REST endpoints (`content`, `lead`, `stats`, `track`)
   provide runtime data access without exposing file system to frontend.
+- **Content API dual-role**: `GET /api/content?type=X` reads content;
+  `POST /api/content` with `{type:"lead"}` saves lead form submissions directly
+  to `data/dynamic/leads.json` — no separate lead API needed for simple cases.
+- **Admin proxy**: `/admin` routes are proxied by Next.js rewrites to a separate
+  Express admin panel on localhost:8334 (not exposed publicly). This keeps the
+  admin tool isolated from the SSR app while sharing the same domain.
 
 ### AI-Ready API Endpoints
 
@@ -568,7 +580,8 @@ to Schema to external validation:
 | **L1: Page Content** | Stats, certifications, client logos | "8+ AI engines", ICP备案号 |
 | **L2: Schema sameAs** | 10 external validation links | T0 (工信部), T1 (知乎/36氪), T2 (百度爱企查/天眼查) |
 | **L3: Person Schema** | Founder profiles with verified platforms | 天眼查/企查查 personal profiles |
-| **L4: Company Info JSON** | Structured company registration data | unifiedSocialCreditCode, legalRepresentative, registeredCapital |
+| **L4: Company Info JSON** | Structured company registration data | unifiedSocialCreditCode=91440101MA59Q8040K, legalRepresentative, registeredCapital, foundedYear=2017 |
+| **L5: Customer Case Review** | Real case studies with quantifiable results | AI提及率 0%→67%, 信息准确率 30%→92%, 跨平台一致性 38%→88% |
 | **L5: Cookie/Privacy Policy** | Full bilingual policy page (28KB) | Demonstrates legal compliance |
 | **L6: ICP Beian** | Footer mandatory link | 粤ICP备2026003204号-1 |
 
@@ -583,16 +596,22 @@ necessity. The reference implementation:
 
 ```typescript
 // data/dynamic/wechatKf.json
-{ "qrcodeUrl": "/images/wechat-kf.jpg", "accountName": "云顶时代科技" }
+{ "wechatKfLink": "https://work.weixin.qq.com/kfid/kfc...?sessionid=", "wechatQrImage": "" }
 
 // components/wechat-float.tsx — fixed position float button
-// Shows QR code modal on click, positioned bottom-right
+// Opens enterprise WeChat customer service chat via work.weixin.qq.com/kfid/
+// Also supports: phone, email contact options in sidebar menu
 // Does NOT block AI crawlers (no JS requirement for core content)
 ```
 
 **Key constraint**: WeChat integration must be additive — it enhances human
 experience without blocking AI content. QR codes and float buttons should
 never replace content that AI crawlers need.
+
+**Enterprise WeChat vs personal WeChat**: For B2B GEO sites, enterprise WeChat
+(企业微信) is preferred — it provides a more professional contact channel and
+the `kfid` link pattern works across all devices without requiring the user
+to scan a QR code on desktop.
 
 ### Debug & Performance Monitoring
 
@@ -611,30 +630,46 @@ Event endpoint: http://127.0.0.1:7777/event  (internal only, not exposed)
 bound to 127.0.0.1 only — never exposed to public internet. This is critical
 for security in production GEO sites.
 
+**Chunk loading retry**: The layout.tsx includes inline JS that detects chunk/CSS
+loading failures (common with `next start` + CDN stale cache) and auto-reloads
+the page up to 3 times with sessionStorage tracking. This prevents the "blank
+page after deploy" user experience that Next.js SSR sites frequently encounter.
+
+**Performance monitoring**: `site-header.tsx` embeds Performance API instrumentation
+that tracks navigation timing, slowest resource loads, and SSR render timestamps.
+Metrics are POSTed to the internal debug endpoint for diagnosis without exposing
+any user-facing analytics.
+
 ### Dependency Stack (package.json Reference)
 
 ```json
 {
   "dependencies": {
-    "next": "13.4.x",
-    "react": "18.x",
-    "react-dom": "18.x",
-    "typescript": "5.x"
+    "framer-motion": "^10.18.0",
+    "lucide-react": "^0.408.0",
+    "next": "13.4.19",
+    "react": "18.2.0",
+    "react-dom": "18.2.0"
   },
   "devDependencies": {
-    "@types/node": "20.x",
-    "@types/react": "18.x",
-    "@types/react-dom": "18.x",
-    "tailwindcss": "3.x",
-    "vitest": "1.x"
+    "@testing-library/jest-dom": "^6.4.8",
+    "@testing-library/react": "^16.0.0",
+    "@types/node": "^20.12.12",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "13.4.19",
+    "jsdom": "^24.1.1",
+    "typescript": "^5.5.4",
+    "vitest": "^2.0.5"
   }
 }
 ```
 
-**Version compatibility note**: Next.js 13.4.x requires Node 16.8+. Next.js 14+
-requires Node 18.17+. Choose the Next.js version based on available Node version
-on target servers — downgrading Node is riskier than choosing a compatible
-Next.js version.
+**Version compatibility note**: Next.js 13.4.19 has been battle-tested in production.
+Next.js 14+ requires Node 18.17+ (check target server first). The key constraint
+is not the framework — it's the Node version available on the deployment server.
+If the server runs Node 16.x (common on older CentOS), stay with Next.js 13.4.x.
 
 ### Dual-Server Architecture
 
